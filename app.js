@@ -23,7 +23,7 @@ function tikName(code){if(rows.some(row=>row[1]===code))return code;return tikNa
 function readUrl(){
   const params=new URLSearchParams(location.search);
   const pathCode=location.pathname.split('/').filter(Boolean)[0];
-  const region=regionFromCode(pathCode)||regionFromCode(params.get('region'))||regionFromCode('spb')||window.index[0];
+  const region=regionFromCode(pathCode)||regionFromCode(params.get('region'))||window.index[Math.floor(Math.random()*window.index.length)];
   const metric=['er','turnout','pick'].includes(params.get('metric'))?params.get('metric'):defaults.metric;
   const number=(name,min,max,step,fallback)=>{const value=Number(params.get(name));return params.has(name)&&Number.isFinite(value)&&value>=min&&value<=max&&Math.abs(value/step-Math.round(value/step))<1e-8?String(value):fallback};
   const minPct=number('minPct',0,100,1,defaults.minPct),maxPct=number('maxPct',0,100,1,defaults.maxPct);
