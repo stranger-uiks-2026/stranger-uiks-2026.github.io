@@ -68,7 +68,7 @@ function pointGroups(items){
 }
 function metricIndex(){return $('metric').value==='er'?5:4}
 function metricName(){return $('metric').value==='er'?'ЕР по списку':'Явка'}
-const metricPalette=['#00204D','#404D6B','#7C7B78','#BCAF6F','#D71932'];
+const metricPalette=['#FFEA46','#BCAF6F','#7C7B78','#C8793A','#D71932'];
 function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return metricPalette[Math.min(4,Math.floor(n/20))]}
 function groupPopup(group){
   const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0])),m=metricIndex();
@@ -84,8 +84,8 @@ function markerIcon(group,selected){
     if(expanded)return L.divIcon({className:'uik-value-marker'+(selected?' is-selected':''),html:`<span class="value-pill" style="--value-color:${color}">${value}%</span>`,iconSize:[56,30],iconAnchor:[28,15]});
     return L.divIcon({className:'uik-point'+(selected?' is-selected':''),html:`<span style="background:${color}"></span>`,iconSize:[selected?24:20,selected?24:20],iconAnchor:[selected?12:10,selected?12:10]});
   }
-  const step=360/items.length,gap=Math.min(1.5,step*.08);
-  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}deg ${((i+1)*step-gap).toFixed(3)}deg,#17252b ${((i+1)*step-gap).toFixed(3)}deg ${((i+1)*step).toFixed(3)}deg`).join(',');
+  const step=360/items.length;
+  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}deg ${((i+1)*step).toFixed(3)}deg`).join(',');
   const values=items.map(r=>Number(r[metric])),range=`${Math.round(Math.min(...values))}–${Math.round(Math.max(...values))}%`;
   return L.divIcon({className:'cluster-pie'+(selected?' is-selected':''),html:`<span class="pie-disc" style="background:conic-gradient(${sectors})"><b>${items.length}</b></span>${expanded?`<span class="cluster-range">${range}</span>`:''}`,iconSize:[44,44],iconAnchor:[22,22]});
 }
