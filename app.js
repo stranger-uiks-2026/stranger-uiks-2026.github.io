@@ -68,7 +68,8 @@ function pointGroups(items){
 }
 function metricIndex(){return $('metric').value==='er'?5:4}
 function metricName(){return $('metric').value==='er'?'ЕР по списку':'Явка'}
-function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return `hsl(${Math.round(160-n*1.6)} 68% 43%)`}
+const cividis=['#00204D','#404D6B','#7C7B78','#BCAF6F','#FFEA46'];
+function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return cividis[Math.min(4,Math.floor(n/20))]}
 function groupPopup(group){
   const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0])),m=metricIndex();
   const values=items.map(r=>Number(r[m]));
@@ -77,16 +78,22 @@ function groupPopup(group){
   return `<b>${header}</b><br>${metricName()}: ${items.length===1?fmt(values[0]):`в среднем ${fmt(avg)}`}%${items.length>1?` · от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`:''}<div class="cluster-list">${items.map(r=>`<div><a href="${uikHref(r)}" data-uik="${r[7]}">УИК #${r[0]}</a><br>явка ${fmt(r[4])}% · ЕР ${fmt(r[5])}%</div>`).join('')}</div>`
 }
 function markerIcon(group,selected){
-  const metric=metricIndex(),items=group.rows.slice().sort((a,b)=>a[metric]-b[metric]);
-  if(items.length===1){const color=metricColor(items[0][metric]);return L.divIcon({className:'uik-point'+(selected?' is-selected':''),html:`<span style="background:${color}"></span>`,iconSize:[selected?24:20,selected?24:20],iconAnchor:[selected?12:10,selected?12:10]})}
-  const step=100/items.length;
-  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}% ${((i+1)*step).toFixed(3)}%`).join(',');
-  return L.divIcon({className:'cluster-pie'+(selected?' is-selected':''),html:`<span class="pie-disc" style="background:conic-gradient(${sectors})"><b>${items.length}</b></span>`,iconSize:[44,44],iconAnchor:[22,22]});
+  const metric=metricIndex(),items=group.rows.slice().sort((a,b)=>a[metric]-b[metric]),expanded=map.getZoom()>=14;
+  if(items.length===1){
+    const value=fmt(items[0][metric]),color=metricColor(items[0][metric]);
+    if(expanded)return L.divIcon({className:'uik-value-marker'+(selected?' is-selected':''),html:`<span class="value-pill" style="--value-color:${color}">${value}%</span>`,iconSize:[56,30],iconAnchor:[28,15]});
+    return L.divIcon({className:'uik-point'+(selected?' is-selected':''),html:`<span style="background:${color}"></span>`,iconSize:[selected?24:20,selected?24:20],iconAnchor:[selected?12:10,selected?12:10]});
+  }
+  const step=360/items.length,gap=Math.min(1.5,step*.08);
+  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}deg ${((i+1)*step-gap).toFixed(3)}deg,#17252b ${((i+1)*step-gap).toFixed(3)}deg ${((i+1)*step).toFixed(3)}deg`).join(',');
+  const values=items.map(r=>Number(r[metric])),range=`${Math.round(Math.min(...values))}–${Math.round(Math.max(...values))}%`;
+  return L.divIcon({className:'cluster-pie'+(selected?' is-selected':''),html:`<span class="pie-disc" style="background:conic-gradient(${sectors})"><b>${items.length}</b></span>${expanded?`<span class="cluster-range">${range}</span>`:''}`,iconSize:[44,44],iconAnchor:[22,22]});
 }
 function renderPointGroups(items,target,selected){
   for(const group of pointGroups(items)){
-    const isSelected=group.rows.some(r=>r[7]===selected);
-    L.marker([group.lat,group.lon],{icon:markerIcon(group,isSelected),keyboard:true,title:group.rows.length===1?`УИК #${group.rows[0][0]}: ${metricName()} ${fmt(group.rows[0][metricIndex()])}%`:`${group.rows.length} УИК: нажмите для списка`}).bindPopup(groupPopup(group),{maxHeight:300,minWidth:180}).addTo(target);
+    const isSelected=group.rows.some(r=>r[7]===selected),values=group.rows.map(r=>Number(r[metricIndex()]));
+    const title=group.rows.length===1?`УИК #${group.rows[0][0]}: ${metricName()} ${fmt(values[0])}%`:`${group.rows.length} УИК: ${metricName()} от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`;
+    L.marker([group.lat,group.lon],{icon:markerIcon(group,isSelected),keyboard:true,title}).bindPopup(groupPopup(group),{maxHeight:300,minWidth:180}).addTo(target);
   }
 }
 function renderMarkers(items){markerLayer.clearLayers();if(!requestedUik)renderPointGroups(items,markerLayer)}
