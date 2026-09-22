@@ -3,6 +3,17 @@ const map=L.map('map',{preferCanvas:true}).setView([55.75,37.62],9);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);
 const layer=L.layerGroup().addTo(map);
 let rows=[],pairs=[];
+let regionRequest=0;
+const defaults={metric:'er',distance:'2',threshold:'15',sameTik:true};
+function readUrl(){
+  const params=new URLSearchParams(location.search);
+  const region=window.index.find(x=>x.name===params.get('region'))||window.index.find(x=>x.name==='город Санкт-Петербург')||window.index[0];
+  const metric=['er','turnout'].includes(params.get('metric'))?params.get('metric'):defaults.metric;
+  const number=(name,min,max,step,fallback)=>{const value=Number(params.get(name));return params.has(name)&&Number.isFinite(value)&&value>=min&&value<=max&&Math.abs(value/step-Math.round(value/step))<1e-8?String(value):fallback};
+  return {region:region.file,metric,distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik};
+}
+function applyUrl(){const state=readUrl();$('region').value=state.region;$('metric').value=state.metric;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik}
+function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);params.set('region',item.name);params.set('metric',$('metric').value);params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');history[mode+'State'](null,'',url)}
 const km=(a,b)=>{const r=Math.PI/180, x=(b[2]-a[2])*r,y=(b[3]-a[3])*r;const h=Math.sin(x/2)**2+Math.cos(a[2]*r)*Math.cos(b[2]*r)*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(h))};
 const fmt=n=>Number(n).toLocaleString('ru-RU',{maximumFractionDigits:1});
 function calculate(){
@@ -23,6 +34,10 @@ function calculate(){
   $('pairs').replaceChildren(...pairs.slice(0,30).map(p=>{const b=document.createElement('button');b.innerHTML=`УИК №${p.a[0]} ↔ №${p.b[0]} <strong>${fmt(p.diff)} п.п.</strong><small>${fmt(p.d)} км · ${p.a[1]}</small>`;b.onclick=()=>{map.fitBounds([[p.a[2],p.a[3]],[p.b[2],p.b[3]]],{padding:[70,70],maxZoom:15});L.popup().setLatLng([(p.a[2]+p.b[2])/2,(p.a[3]+p.b[3])/2]).setContent(popup(p,metric)).openOn(map)};return b}));
 }
 function popup(p,m){const name=m===5?'ЕР по списку':'Явка';return `<b>${name}: разница ${fmt(p.diff)} п.п.</b><br>УИК №${p.a[0]} — ${fmt(p.a[m])}%<br>УИК №${p.b[0]} — ${fmt(p.b[m])}%<br>Расстояние ${fmt(p.d)} км · ${p.a[1]}`}
-async function choose(){const item=window.index.find(x=>x.file===$('region').value);window.regionInfo=item;$('stats').textContent='Загрузка региона…';rows=await(await fetch(item.file)).json();if(rows.length){const lat=rows.map(r=>r[2]).sort((a,b)=>a-b),lon=rows.map(r=>r[3]).sort((a,b)=>a-b),lo=Math.floor(rows.length*.01),hi=Math.ceil(rows.length*.99)-1;map.fitBounds([[lat[lo],lon[lo]],[lat[hi],lon[hi]]],{padding:[35,35]})}calculate()}
-async function init(){try{window.index=await(await fetch('index.json')).json();$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');$('region').value=window.index.find(x=>x.name==='город Санкт-Петербург')?.file||window.index[0].file;await choose()}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
-for(const id of ['metric','distance','threshold','sameTik'])$(id).addEventListener('input',()=>rows.length&&calculate());$('region').addEventListener('change',choose);init();
+async function choose(){const item=window.index.find(x=>x.file===$('region').value),request=++regionRequest;window.regionInfo=item;$('stats').textContent='Загрузка региона…';const nextRows=await(await fetch(item.file)).json();if(request!==regionRequest)return;rows=nextRows;if(rows.length){const lat=rows.map(r=>r[2]).sort((a,b)=>a-b),lon=rows.map(r=>r[3]).sort((a,b)=>a-b),lo=Math.floor(rows.length*.01),hi=Math.ceil(rows.length*.99)-1;map.fitBounds([[lat[lo],lon[lo]],[lat[hi],lon[hi]]],{padding:[35,35]})}calculate()}
+async function init(){try{window.index=await(await fetch('index.json')).json();$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');applyUrl();writeUrl('replace');await choose()}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
+for(const id of ['metric','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length)calculate()});
+for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
+$('region').addEventListener('change',()=>{writeUrl('push');choose()});
+addEventListener('popstate',()=>{const previous=window.regionInfo?.file;applyUrl();if(previous!==$('region').value)choose();else if(rows.length)calculate()});
+init();
