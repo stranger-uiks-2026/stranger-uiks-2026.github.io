@@ -68,8 +68,8 @@ function pointGroups(items){
 }
 function metricIndex(){return $('metric').value==='er'?5:4}
 function metricName(){return $('metric').value==='er'?'ЕР по списку':'Явка'}
-const cividis=['#00204D','#404D6B','#7C7B78','#BCAF6F','#FFEA46'];
-function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return cividis[Math.min(4,Math.floor(n/20))]}
+const metricPalette=['#00204D','#404D6B','#7C7B78','#BCAF6F','#D71932'];
+function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return metricPalette[Math.min(4,Math.floor(n/20))]}
 function groupPopup(group){
   const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0])),m=metricIndex();
   const values=items.map(r=>Number(r[m]));
