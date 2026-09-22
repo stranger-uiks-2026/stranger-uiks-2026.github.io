@@ -10,9 +10,10 @@ let regionRequest=0;
 let selectedTiks=new Set(),requestedTiks=[];
 let requestedUik=null;
 const defaults={metric:'er',distance:'2',threshold:'15',sameTik:true};
-const regionAliases={'spb':'83.json','msk':'82.json'};
-function regionFromCode(code){if(!code)return null;const value=code.trim().toLocaleLowerCase('ru');return window.index.find(x=>x.name.toLocaleLowerCase('ru')===value||x.file.slice(0,2)===value||x.file===value||regionAliases[value]===x.file)}
-function regionPath(item){return item.file==='83.json'?'/spb/':'/'}
+const regionSlugs=["altai-krai", "amur", "arkhangelsk", "astrakhan", "belgorod", "bryansk", "vladimir", "volgograd", "vologda", "voronezh", "eao", "zabaikalye", "ivanovo", "irkutsk", "kbr", "kaliningrad", "kaluga", "kamchatka", "kchr", "kuzbass", "kirov", "kostroma", "krasnodar", "krasnoyarsk", "kurgan", "kursk", "lenoblast", "lipetsk", "magadan", "mosoblast", "murmansk", "nao", "nizhny-novgorod", "novgorod", "novosibirsk", "omsk", "orenburg", "orel", "penza", "perm", "primorye", "pskov", "adygea", "altai-republic", "buryatia", "dagestan", "ingushetia", "kalmykia", "karelia", "komi", "krym", "mari-el", "mordovia", "yakutia", "osetia", "tatarstan", "tuva", "khakasia", "rostov", "ryazan", "samara", "saratov", "sakhalin", "sverdlovsk", "smolensk", "stavropol", "tambov", "tver", "tomsk", "tula", "tyumen", "udmurtia", "ulyanovsk", "khabarovsk", "khmao", "chelyabinsk", "chechnya", "chuvashia", "chukotka", "yanao", "yaroslavl", "msk", "spb", "sevastopol"];
+function slugFor(item){return regionSlugs[Number(item.file.slice(0,2))-1]}
+function regionFromCode(code){if(!code)return null;const value=code.trim().toLocaleLowerCase('ru');return window.index.find(x=>x.name.toLocaleLowerCase('ru')===value||x.file.slice(0,2)===value||x.file===value||slugFor(x)===value)}
+function regionPath(item){return '/'+slugFor(item)+'/'}
 function uikLabel(row){return `#${row[0]}<br>явка ${fmt(row[4])}%<br>ЕР ${fmt(row[5])}%`}
 function readUrl(){
   const params=new URLSearchParams(location.search);
@@ -23,8 +24,8 @@ function readUrl(){
   return {region:region.file,metric,distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik,tiks:params.getAll('tik'),uik:params.get('uik')};
 }
 function applyUrl(){const state=readUrl();$('region').value=state.region;$('metric').value=state.metric;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
-function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');if(url.pathname==='/')params.set('region',item.file.slice(0,2));params.set('metric',$('metric').value);params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tik);requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
-function uikHref(row){const url=new URL(location.href);url.pathname=regionPath(window.regionInfo);url.searchParams.delete('region');if(url.pathname==='/')url.searchParams.set('region',window.regionInfo.file.slice(0,2));url.searchParams.set('uik',row[7]);return url.pathname+url.search}
+function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');params.set('metric',$('metric').value);params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tik);requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
+function uikHref(row){const url=new URL(location.href);url.pathname=regionPath(window.regionInfo);url.searchParams.delete('region');url.searchParams.set('uik',row[7]);return url.pathname+url.search}
 function openUik(uuid){requestedUik=uuid;writeUrl('push');renderDetail()}
 function renderDetail(){
   const card=$('uikDetail'),row=rows.find(item=>item[7]===requestedUik);detailLayer.clearLayers();card.replaceChildren();card.hidden=!requestedUik;if(!requestedUik)return;
