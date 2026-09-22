@@ -26,28 +26,30 @@ function readUrl(){
   const region=regionFromCode(pathCode)||regionFromCode(params.get('region'))||regionFromCode('spb')||window.index[0];
   const metric=['er','turnout','pick'].includes(params.get('metric'))?params.get('metric'):defaults.metric;
   const number=(name,min,max,step,fallback)=>{const value=Number(params.get(name));return params.has(name)&&Number.isFinite(value)&&value>=min&&value<=max&&Math.abs(value/step-Math.round(value/step))<1e-8?String(value):fallback};
-  return {region:region.file,area:(areaGroups[region.file]||[]).some(x=>x.code===params.get('area'))?params.get('area'):'',metric,distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik,tiks:params.getAll('tik'),uik:params.get('uik')};
+  return {region:region.file,area:(areaGroups[region.file]||[]).some(x=>x.code===params.get('area'))?params.get('area'):'',metric,view:params.get('view')==='all'?'all':'pairs',distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik,tiks:params.getAll('tik'),uik:params.get('uik')};
 }
-function applyUrl(){const state=readUrl();$('region').value=state.region;requestedArea=state.area;$('metric').value=state.metric;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
-function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');$('area').value?params.set('area',$('area').value):params.delete('area');params.set('metric',$('metric').value);params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tikCode(tik));requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
+function applyUrl(){const state=readUrl();$('region').value=state.region;requestedArea=state.area;$('metric').value=state.metric;$('view').value=state.view;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
+function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');$('area').value?params.set('area',$('area').value):params.delete('area');params.set('metric',$('metric').value);$('view').value==='all'?params.set('view','all'):params.delete('view');params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tikCode(tik));requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
 function uikHref(row){const url=new URL(location.href);url.pathname=regionPath(window.regionInfo);url.searchParams.delete('region');url.searchParams.set('uik',row[7]);return url.pathname+url.search}
 function openUik(uuid){requestedUik=uuid;writeUrl('push');renderMarkers(shownRows);renderDetail()}
+function closeUik(){requestedUik=null;writeUrl('push');renderDetail();renderMarkers(shownRows);fitMapToRows()}
 function candidateText(row){return row[8]==null?'Кандидат IditeNa: данных нет':`Кандидат IditeNa: ${row[10]} · ${fmt(row[8])}% (${fmt(row[9])} голосов)`}
 function renderDetail(){
   const card=$('uikDetail'),row=rows.find(item=>item[7]===requestedUik);detailLayer.clearLayers();card.replaceChildren();card.hidden=!requestedUik;if(!requestedUik)return;
   if(!row){card.textContent='УИК с таким идентификатором не найден в выбранном регионе.';return}
+  const closeIcon=document.createElement('button');closeIcon.type='button';closeIcon.className='uik-detail-close';closeIcon.setAttribute('aria-label','Закрыть карточку УИК');closeIcon.textContent='×';closeIcon.onclick=closeUik;card.append(closeIcon);
   const heading=document.createElement('h2');heading.textContent=`УИК №${row[0]}`;card.append(heading);
   const info=document.createElement('p');info.textContent=`${row[1]} · ${window.regionInfo.name}`;card.append(info);
   const values=document.createElement('p');values.textContent=`Явка ${fmt(row[4])}% · ЕР по списку ${fmt(row[5])}% · избирателей ${fmt(row[6])}`;card.append(values);
-  const candidate=document.createElement('p');candidate.textContent=candidateText(row);card.append(candidate);
-  if(row[11]){const district=document.createElement('a');district.href=`https://iditena.org/districts/${encodeURIComponent(row[11])}/`;district.textContent=`Округ #${row[11]} на IditeNa`;district.target='_blank';district.rel='noopener noreferrer';card.append(district)}
+  if(metricIndex()===8){const candidate=document.createElement('p');candidate.textContent=candidateText(row);card.append(candidate);
+    if(row[11]){const district=document.createElement('a');district.href=`https://iditena.org/districts/${encodeURIComponent(row[11])}/`;district.textContent=`Округ #${row[11]} на IditeNa`;district.target='_blank';district.rel='noopener noreferrer';card.append(district)}}
   const point=document.createElement('p');point.textContent=`Координаты помещения: ${row[2]}, ${row[3]} (набор 2021 года)`;card.append(point);
   const link=document.createElement('a');link.href=uikHref(row);link.textContent='Постоянная ссылка на УИК';card.append(link);
   const title=document.createElement('h3');title.textContent='Ближайшие УИК той же ТИК';card.append(title);
   const neighbors=rows.filter(other=>other[7]!==row[7]&&other[1]===row[1]).map(other=>({row:other,d:km(row,other)})).sort((a,b)=>a.d-b.d).slice(0,5);
-  for(const neighbor of neighbors){const button=document.createElement('button');button.type='button';button.textContent=`#${neighbor.row[0]} · ${fmt(neighbor.d)} км · явка ${fmt(neighbor.row[4])}% · ЕР ${fmt(neighbor.row[5])}% · ${candidateText(neighbor.row)}`;button.onclick=()=>openUik(neighbor.row[7]);card.append(button);L.polyline([[row[2],row[3]],[neighbor.row[2],neighbor.row[3]]],{color:'#168b6c',weight:2,opacity:.55,dashArray:'5 5'}).addTo(detailLayer);}
-  const close=document.createElement('button');close.type='button';close.textContent='Закрыть карточку';close.onclick=()=>{requestedUik=null;writeUrl('push');renderDetail();renderMarkers(shownRows);fitMapToRows()};card.append(close);
-  renderPointGroups([row,...neighbors.map(x=>x.row)].filter(hasMetric),detailLayer,row[7]);
+  for(const neighbor of neighbors){const button=document.createElement('button');button.type='button';button.textContent=`#${neighbor.row[0]} · ${fmt(neighbor.d)} км · явка ${fmt(neighbor.row[4])}% · ЕР ${fmt(neighbor.row[5])}%${metricIndex()===8?` · ${candidateText(neighbor.row)}`:''}`;button.onclick=()=>openUik(neighbor.row[7]);card.append(button);L.polyline([[row[2],row[3]],[neighbor.row[2],neighbor.row[3]]],{color:'#168b6c',weight:2,opacity:.55,dashArray:'5 5'}).addTo(detailLayer);}
+  const close=document.createElement('button');close.type='button';close.textContent='Закрыть карточку';close.onclick=closeUik;card.append(close);
+  renderPointGroups([row,...neighbors.map(x=>x.row)].filter(item=>$('view').value==='all'||hasMetric(item)),detailLayer,row[7]);
   const nearby=[row,...neighbors.map(x=>x.row)];if(nearby.length>1)map.fitBounds(L.latLngBounds(nearby.map(x=>[x[2],x[3]])),{padding:[90,90],maxZoom:14});else map.setView([row[2],row[3]],13);
 }
 function areaRows(){const area=areas().find(x=>x.code===$('area').value);return area?rows.filter(row=>area.tiks.includes(row[1])):rows}
@@ -76,37 +78,38 @@ const metricPalette=['#FFEA46','#BCAF6F','#7C7B78','#C8793A','#D71932'];
 function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return metricPalette[Math.min(4,Math.floor(n/20))]}
 function groupPopup(group){
   const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0])),m=metricIndex();
-  const values=items.map(r=>Number(r[m]));
-  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+  const values=items.filter(hasMetric).map(r=>Number(r[m]));
   const header=items.length===1?`УИК #${items[0][0]}`:`${items.length} УИК рядом`;
-  return `<b>${header}</b><br>${metricName()}: ${items.length===1?fmt(values[0]):`в среднем ${fmt(avg)}`}%${items.length>1?` · от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`:''}<div class="cluster-list">${items.map(r=>`<div><a href="${uikHref(r)}" data-uik="${r[7]}">УИК #${r[0]}</a><br>явка ${fmt(r[4])}% · ЕР ${fmt(r[5])}%${r[8]!=null?`<br>${escapeHtml(r[10])}: ${fmt(r[8])}% (${fmt(r[9])} голосов)`:''}</div>`).join('')}</div>`
+  return `<b>${header}</b><br>${metricName()}: ${!values.length?'нет данных':values.length===1?`${fmt(values[0])}%`:`от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`}<div class="cluster-list">${items.map(r=>`<div><a href="${uikHref(r)}" data-uik="${r[7]}">УИК #${r[0]}</a><br>явка ${fmt(r[4])}% · ЕР ${fmt(r[5])}%${metricIndex()===8?`<br>${r[8]!=null?`${escapeHtml(r[10])}: ${fmt(r[8])}% (${fmt(r[9])} голосов)`:'Кандидат IditeNa: нет данных'}`:''}</div>`).join('')}</div>`
 }
 function markerIcon(group,selected){
-  const metric=metricIndex(),items=group.rows.slice().sort((a,b)=>a[metric]-b[metric]),expanded=map.getZoom()>=14;
+  const metric=metricIndex(),items=group.rows.slice().sort((a,b)=>(a[metric]??Infinity)-(b[metric]??Infinity)),expanded=map.getZoom()>=14;
   if(items.length===1){
-    const value=fmt(items[0][metric]),color=metricColor(items[0][metric]);
-    if(expanded)return L.divIcon({className:'uik-value-marker'+(selected?' is-selected':''),html:`<span class="value-pill" style="--value-color:${color}">${value}%</span>`,iconSize:[56,30],iconAnchor:[28,15]});
+    const available=hasMetric(items[0]),value=available?`${fmt(items[0][metric])}%`:'—',color=available?metricColor(items[0][metric]):'#b8c1c4';
+    if(expanded)return L.divIcon({className:'uik-value-marker'+(selected?' is-selected':''),html:`<span class="value-pill" style="--value-color:${color}">${value}</span>`,iconSize:[56,30],iconAnchor:[28,15]});
     return L.divIcon({className:'uik-point'+(selected?' is-selected':''),html:`<span style="background:${color}"></span>`,iconSize:[selected?24:20,selected?24:20],iconAnchor:[selected?12:10,selected?12:10]});
   }
   const step=360/items.length;
-  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}deg ${((i+1)*step).toFixed(3)}deg`).join(',');
-  const values=items.map(r=>Number(r[metric])),range=`${Math.round(Math.min(...values))}–${Math.round(Math.max(...values))}%`;
+  const sectors=items.map((row,i)=>`${hasMetric(row)?metricColor(row[metric]):'#b8c1c4'} ${(i*step).toFixed(3)}deg ${((i+1)*step).toFixed(3)}deg`).join(',');
+  const values=items.filter(hasMetric).map(r=>Number(r[metric])),range=values.length?`${Math.round(Math.min(...values))}–${Math.round(Math.max(...values))}%`:'нет данных';
   return L.divIcon({className:'cluster-pie'+(selected?' is-selected':''),html:`<span class="pie-disc" style="background:conic-gradient(${sectors})"><b>${items.length}</b></span>${expanded?`<span class="cluster-range">${range}</span>`:''}`,iconSize:[44,44],iconAnchor:[22,22]});
 }
 function renderPointGroups(items,target,selected){
   for(const group of pointGroups(items)){
-    const isSelected=group.rows.some(r=>r[7]===selected),values=group.rows.map(r=>Number(r[metricIndex()]));
-    const title=group.rows.length===1?`УИК #${group.rows[0][0]}: ${metricName()} ${fmt(values[0])}%`:`${group.rows.length} УИК: ${metricName()} от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`;
+    const isSelected=group.rows.some(r=>r[7]===selected),values=group.rows.filter(hasMetric).map(r=>Number(r[metricIndex()]));
+    const title=group.rows.length===1?`УИК #${group.rows[0][0]}: ${metricName()} ${values.length?`${fmt(values[0])}%`:'нет данных'}`:`${group.rows.length} УИК: ${metricName()} ${values.length?`от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`:'нет данных'}`;
     L.marker([group.lat,group.lon],{icon:markerIcon(group,isSelected),keyboard:true,title}).bindPopup(groupPopup(group),{maxHeight:300,minWidth:180}).addTo(target);
   }
 }
 function renderMarkers(items){markerLayer.clearLayers();if(!requestedUik)renderPointGroups(items,markerLayer)}
 function calculate(){
   const maxDist=+$('distance').value, threshold=+$('threshold').value, metric=metricIndex(), same=$('sameTik').checked;
+  const allMode=$('view').value==='all';document.body.classList.toggle('all-uiks-mode',allMode);document.querySelector('.pair-section').hidden=allMode;
   $('metricLegendLabel').textContent=metricName();
   $('distanceLabel').textContent=fmt(maxDist)+' км';$('thresholdLabel').textContent=threshold+' п.п.';
   const cells=new Map(),size=.08;
   const filtered=areaRows(),selectedRows=selectedTiks.size?filtered.filter(row=>selectedTiks.has(row[1])):filtered,activeRows=selectedRows.filter(hasMetric);
+  if(allMode){pairs=[];layer.clearLayers();shownRows=selectedRows;renderMarkers(shownRows);$('stats').innerHTML=`<strong>${fmt(selectedRows.length)} УИК</strong> в выбранной территории${metric===8?` · ${fmt(activeRows.length)} с результатом кандидата, остальные серые`:''}`;return}
   activeRows.forEach((r,i)=>{const key=`${Math.floor(r[2]/size)},${Math.floor(r[3]/size)}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(i)});
   const found=new Map();
   activeRows.forEach((a,i)=>{const ci=Math.floor(a[2]/size),cj=Math.floor(a[3]/size),near=[];
@@ -124,7 +127,7 @@ function popup(p,m){const name=metricName(),candidate=m===8?`<br>${escapeHtml(p.
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function choose(){const item=window.index.find(x=>x.file===$('region').value),request=++regionRequest;window.regionInfo=item;$('stats').textContent='Загрузка региона…';const nextRows=await(await fetch('/'+item.file)).json();if(request!==regionRequest)return;rows=nextRows;renderArea();restoreTiks();fitMapToRows();calculate();renderDetail()}
 async function init(){try{[window.index,areaGroups]=await Promise.all([fetch('/index.json').then(r=>r.json()),fetch('/area-groups.json').then(r=>r.json())]);$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');applyUrl();await choose();writeUrl('replace')}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
-for(const id of ['metric','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length){calculate();renderDetail()}});
+for(const id of ['metric','view','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length){calculate();renderDetail()}});
 for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
 $('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';$('area').value='';writeUrl('push');choose()});
 $('area').addEventListener('change',()=>{requestedArea=$('area').value;selectedTiks.clear();requestedTiks=[];requestedUik=null;renderTiks();writeUrl('push');fitMapToRows();calculate();renderDetail()});
