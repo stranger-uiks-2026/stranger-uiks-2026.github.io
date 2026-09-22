@@ -148,7 +148,7 @@ for(const id of ['metric','view','sameTik'])$(id).addEventListener('change',()=>
 for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
 for(const id of ['minPct','maxPct'])$(id).addEventListener('input',()=>{if(+$('minPct').value>+$('maxPct').value)$(id).value=$(id==='minPct'?'maxPct':'minPct').value;updatePercentRange();writeUrl('replace');if(rows.length)calculate()});
 $('resetPct').addEventListener('click',()=>{if($('minPct').value==='0'&&$('maxPct').value==='100')return;$('minPct').value='0';$('maxPct').value='100';updatePercentRange();writeUrl('push');if(rows.length)calculate()});
-$('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';$('area').value='';writeUrl('push');choose()});
+$('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';renderArea();writeUrl('push');choose()});
 $('area').addEventListener('change',()=>{requestedArea=$('area').value;selectedTiks.clear();requestedTiks=[];requestedUik=null;renderTiks();writeUrl('push');fitMapToRows();calculate();renderDetail()});
 $('tikSearch').addEventListener('input',renderTiks);
 $('uikSearch').addEventListener('input',searchUiks);
