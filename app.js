@@ -31,7 +31,7 @@ function readUrl(){
 function applyUrl(){const state=readUrl();$('region').value=state.region;requestedArea=state.area;$('metric').value=state.metric;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
 function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');$('area').value?params.set('area',$('area').value):params.delete('area');params.set('metric',$('metric').value);params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tikCode(tik));requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
 function uikHref(row){const url=new URL(location.href);url.pathname=regionPath(window.regionInfo);url.searchParams.delete('region');url.searchParams.set('uik',row[7]);return url.pathname+url.search}
-function openUik(uuid){requestedUik=uuid;writeUrl('push');renderDetail()}
+function openUik(uuid){requestedUik=uuid;writeUrl('push');renderMarkers(shownRows);renderDetail()}
 function renderDetail(){
   const card=$('uikDetail'),row=rows.find(item=>item[7]===requestedUik);detailLayer.clearLayers();card.replaceChildren();card.hidden=!requestedUik;if(!requestedUik)return;
   if(!row){card.textContent='УИК с таким идентификатором не найден в выбранном регионе.';return}
@@ -43,12 +43,12 @@ function renderDetail(){
   const title=document.createElement('h3');title.textContent='Ближайшие УИК той же ТИК';card.append(title);
   const neighbors=rows.filter(other=>other[7]!==row[7]&&other[1]===row[1]).map(other=>({row:other,d:km(row,other)})).sort((a,b)=>a.d-b.d).slice(0,5);
   for(const neighbor of neighbors){const button=document.createElement('button');button.type='button';button.textContent=`№${neighbor.row[0]} · ${fmt(neighbor.d)} км · явка ${fmt(neighbor.row[4])}% · ЕР ${fmt(neighbor.row[5])}%`;button.onclick=()=>openUik(neighbor.row[7]);card.append(button);L.polyline([[row[2],row[3]],[neighbor.row[2],neighbor.row[3]]],{color:'#168b6c',weight:2,opacity:.55,dashArray:'5 5'}).addTo(detailLayer);}
-  const close=document.createElement('button');close.type='button';close.textContent='Закрыть карточку';close.onclick=()=>{requestedUik=null;writeUrl('push');renderDetail();fitMapToRows()};card.append(close);
+  const close=document.createElement('button');close.type='button';close.textContent='Закрыть карточку';close.onclick=()=>{requestedUik=null;writeUrl('push');renderDetail();renderMarkers(shownRows);fitMapToRows()};card.append(close);
   renderPointGroups([row,...neighbors.map(x=>x.row)],detailLayer,row[7]);
   const nearby=[row,...neighbors.map(x=>x.row)];if(nearby.length>1)map.fitBounds(L.latLngBounds(nearby.map(x=>[x[2],x[3]])),{padding:[90,90],maxZoom:14});else map.setView([row[2],row[3]],13);
 }
 function areaRows(){const area=areas().find(x=>x.code===$('area').value);return area?rows.filter(row=>area.tiks.includes(row[1])):rows}
-function renderArea(){const available=areas(),region=$('region').value;$('areaFilter').hidden=!available.length;if(!available.length){$('area').value='';return}$('areaFilter').firstChild.textContent=region==='82.json'?'Округ Москвы':region==='83.json'?'Район Петербурга':'Район Воронежа';$('area').replaceChildren(new Option(region==='82.json'?'Все округа':'Все районы',''),...available.map(x=>new Option(x.name,x.code)));$('area').value=available.some(x=>x.code===requestedArea)?requestedArea:'';requestedArea=$('area').value}
+function renderArea(){const available=areas(),region=$('region').value;$('areaFilter').hidden=!available.length;if(!available.length){$('area').value='';return}$('areaFilter').firstChild.textContent=region==='82.json'?'Округ Москвы':region==='83.json'?'Район Петербурга':region==='10.json'?'Район Воронежа':'Город / район';$('area').replaceChildren(new Option(region==='82.json'?'Все округа':'Все районы',''),...available.map(x=>new Option(x.name,x.code)));$('area').value=available.some(x=>x.code===requestedArea)?requestedArea:'';requestedArea=$('area').value}
 function renderTiks(){
   const counts=new Map();for(const row of areaRows())counts.set(row[1],(counts.get(row[1])||0)+1);
   const search=$('tikSearch').value.trim().toLocaleLowerCase('ru');$('tikList').replaceChildren(...[...counts].sort((a,b)=>a[0].localeCompare(b[0],'ru')).filter(([name])=>name.toLocaleLowerCase('ru').includes(search)).map(([name,count])=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');input.type='checkbox';input.checked=selectedTiks.has(name);input.dataset.tik=name;span.textContent=`${name} (${count})`;label.append(input,span);return label}));
@@ -59,24 +59,40 @@ function fitMapToRows(){const filtered=areaRows(),visible=selectedTiks.size?filt
 const km=(a,b)=>{const r=Math.PI/180, x=(b[2]-a[2])*r,y=(b[3]-a[3])*r;const h=Math.sin(x/2)**2+Math.cos(a[2]*r)*Math.cos(b[2]*r)*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(h))};
 const fmt=n=>Number(n).toLocaleString('ru-RU',{maximumFractionDigits:1});
 function pointGroups(items){
-  const groups=[],cells=new Map(),size=36;
+  const groups=[],cells=new Map(),size=46;
   for(const row of items){const pt=map.latLngToLayerPoint([row[2],row[3]]),cx=Math.floor(pt.x/size),cy=Math.floor(pt.y/size);let group;
     for(let dx=-1;dx<=1&&!group;dx++)for(let dy=-1;dy<=1&&!group;dy++)for(const candidate of cells.get(`${cx+dx},${cy+dy}`)||[]){if(Math.hypot(candidate.x-pt.x,candidate.y-pt.y)<size){group=candidate;break}}
     if(group)group.rows.push(row);else{group={x:pt.x,y:pt.y,rows:[row],lat:row[2],lon:row[3]};groups.push(group);const key=`${cx},${cy}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(group)}
   }
   return groups;
 }
-function groupPopup(group){const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0]));return `<b>${items.length===1?'УИК #'+items[0][0]:items.length+' УИК в этой точке'}</b><div class="cluster-list">${items.map(r=>`<div><a href="${uikHref(r)}" data-uik="${r[7]}">УИК #${r[0]}</a><br>явка ${fmt(r[4])}% · ЕР ${fmt(r[5])}%</div>`).join('')}</div>`}
+function metricIndex(){return $('metric').value==='er'?5:4}
+function metricName(){return $('metric').value==='er'?'ЕР по списку':'Явка'}
+function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return `hsl(${Math.round(160-n*1.6)} 68% 43%)`}
+function groupPopup(group){
+  const items=group.rows.slice().sort((a,b)=>Number(a[0])-Number(b[0])),m=metricIndex();
+  const values=items.map(r=>Number(r[m]));
+  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+  const header=items.length===1?`УИК #${items[0][0]}`:`${items.length} УИК рядом`;
+  return `<b>${header}</b><br>${metricName()}: ${items.length===1?fmt(values[0]):`в среднем ${fmt(avg)}`}%${items.length>1?` · от ${fmt(Math.min(...values))} до ${fmt(Math.max(...values))}%`:''}<div class="cluster-list">${items.map(r=>`<div><a href="${uikHref(r)}" data-uik="${r[7]}">УИК #${r[0]}</a><br>явка ${fmt(r[4])}% · ЕР ${fmt(r[5])}%</div>`).join('')}</div>`
+}
+function markerIcon(group,selected){
+  const metric=metricIndex(),items=group.rows.slice().sort((a,b)=>a[metric]-b[metric]);
+  if(items.length===1){const color=metricColor(items[0][metric]);return L.divIcon({className:'uik-point'+(selected?' is-selected':''),html:`<span style="background:${color}"></span>`,iconSize:[selected?24:20,selected?24:20],iconAnchor:[selected?12:10,selected?12:10]})}
+  const step=100/items.length;
+  const sectors=items.map((row,i)=>`${metricColor(row[metric])} ${(i*step).toFixed(3)}% ${((i+1)*step).toFixed(3)}%`).join(',');
+  return L.divIcon({className:'cluster-pie'+(selected?' is-selected':''),html:`<span class="pie-disc" style="background:conic-gradient(${sectors})"><b>${items.length}</b></span>`,iconSize:[44,44],iconAnchor:[22,22]});
+}
 function renderPointGroups(items,target,selected){
   for(const group of pointGroups(items)){
     const isSelected=group.rows.some(r=>r[7]===selected);
-    const marker=group.rows.length===1?L.circleMarker([group.lat,group.lon],{radius:isSelected?9:6,color:isSelected?'#087354':'#243a43',weight:2,fillColor:'#fff',fillOpacity:1}):L.marker([group.lat,group.lon],{icon:L.divIcon({className:'cluster-icon',html:`<span>${group.rows.length}</span>`,iconSize:[30,30],iconAnchor:[15,15]})});
-    marker.bindPopup(groupPopup(group),{maxHeight:300,minWidth:160}).addTo(target);
+    L.marker([group.lat,group.lon],{icon:markerIcon(group,isSelected),keyboard:true,title:group.rows.length===1?`УИК #${group.rows[0][0]}: ${metricName()} ${fmt(group.rows[0][metricIndex()])}%`:`${group.rows.length} УИК: нажмите для списка`}).bindPopup(groupPopup(group),{maxHeight:300,minWidth:180}).addTo(target);
   }
 }
-function renderMarkers(items){markerLayer.clearLayers();renderPointGroups(items,markerLayer)}
+function renderMarkers(items){markerLayer.clearLayers();if(!requestedUik)renderPointGroups(items,markerLayer)}
 function calculate(){
-  const maxDist=+$('distance').value, threshold=+$('threshold').value, metric=$('metric').value==='er'?5:4, same=$('sameTik').checked;
+  const maxDist=+$('distance').value, threshold=+$('threshold').value, metric=metricIndex(), same=$('sameTik').checked;
+  $('metricLegendLabel').textContent=metricName();
   $('distanceLabel').textContent=fmt(maxDist)+' км';$('thresholdLabel').textContent=threshold+' п.п.';
   const cells=new Map(),size=.08;
   const filtered=areaRows(),activeRows=selectedTiks.size?filtered.filter(row=>selectedTiks.has(row[1])):filtered;
@@ -96,7 +112,7 @@ function calculate(){
 function popup(p,m){const name=m===5?'ЕР по списку':'Явка';return `<b>${name}: разница ${fmt(p.diff)} п.п.</b><br><a href="${uikHref(p.a)}" data-uik="${p.a[7]}">УИК №${p.a[0]}</a> — ${fmt(p.a[m])}%<br><a href="${uikHref(p.b)}" data-uik="${p.b[7]}">УИК №${p.b[0]}</a> — ${fmt(p.b[m])}%<br>Расстояние ${fmt(p.d)} км`}
 async function choose(){const item=window.index.find(x=>x.file===$('region').value),request=++regionRequest;window.regionInfo=item;$('stats').textContent='Загрузка региона…';const nextRows=await(await fetch('/'+item.file)).json();if(request!==regionRequest)return;rows=nextRows;renderArea();restoreTiks();fitMapToRows();calculate();renderDetail()}
 async function init(){try{[window.index,areaGroups]=await Promise.all([fetch('/index.json').then(r=>r.json()),fetch('/area-groups.json').then(r=>r.json())]);$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');applyUrl();await choose();writeUrl('replace')}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
-for(const id of ['metric','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length)calculate()});
+for(const id of ['metric','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length){calculate();renderDetail()}});
 for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
 $('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';$('area').value='';writeUrl('push');choose()});
 $('area').addEventListener('change',()=>{requestedArea=$('area').value;selectedTiks.clear();requestedTiks=[];requestedUik=null;renderTiks();writeUrl('push');fitMapToRows();calculate();renderDetail()});
