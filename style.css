@@ -4,3 +4,5 @@
 .uik-tooltip{display:none}.show-uik-values .uik-tooltip,.selected-uik-tooltip{display:block}.uik-tooltip,.selected-uik-tooltip{font-size:11px;font-weight:700;color:#18392e;border:1px solid #8bb8a8;border-radius:5px;padding:2px 5px;box-shadow:0 1px 4px #0002}.selected-uik-tooltip{color:#087354;border-color:#087354}
 
 .uik-tooltip,.selected-uik-tooltip{line-height:1.3;text-align:left;white-space:nowrap}
+
+#areaFilter[hidden]{display:none}
