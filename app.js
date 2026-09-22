@@ -12,7 +12,7 @@ let selectedTiks=new Set(),requestedTiks=[];
 let requestedUik=null;
 let areaGroups={},requestedArea='';
 const areas=()=>areaGroups[$('region').value]||[];
-const defaults={metric:'er',distance:'2',threshold:'15',sameTik:true};
+const defaults={metric:'er',distance:'2',threshold:'15',sameTik:true,minPct:'0',maxPct:'100'};
 const regionSlugs=["altai-krai", "amur", "arkhangelsk", "astrakhan", "belgorod", "bryansk", "vladimir", "volgograd", "vologda", "voronezh", "eao", "zabaikalye", "ivanovo", "irkutsk", "kbr", "kaliningrad", "kaluga", "kamchatka", "kchr", "kuzbass", "kirov", "kostroma", "krasnodar", "krasnoyarsk", "kurgan", "kursk", "lenoblast", "lipetsk", "magadan", "mosoblast", "murmansk", "nao", "nizhny-novgorod", "novgorod", "novosibirsk", "omsk", "orenburg", "orel", "penza", "perm", "primorye", "pskov", "adygea", "altai-republic", "buryatia", "dagestan", "ingushetia", "kalmykia", "karelia", "komi", "krym", "mari-el", "mordovia", "yakutia", "osetia", "tatarstan", "tuva", "khakasia", "rostov", "ryazan", "samara", "saratov", "sakhalin", "sverdlovsk", "smolensk", "stavropol", "tambov", "tver", "tomsk", "tula", "tyumen", "udmurtia", "ulyanovsk", "khabarovsk", "khmao", "chelyabinsk", "chechnya", "chuvashia", "chukotka", "yanao", "yaroslavl", "msk", "spb", "sevastopol"];
 function slugFor(item){return regionSlugs[Number(item.file.slice(0,2))-1]}
 function regionFromCode(code){if(!code)return null;const value=code.trim().toLocaleLowerCase('ru');return window.index.find(x=>x.name.toLocaleLowerCase('ru')===value||x.file.slice(0,2)===value||x.file===value||slugFor(x)===value)}
@@ -26,10 +26,11 @@ function readUrl(){
   const region=regionFromCode(pathCode)||regionFromCode(params.get('region'))||regionFromCode('spb')||window.index[0];
   const metric=['er','turnout','pick'].includes(params.get('metric'))?params.get('metric'):defaults.metric;
   const number=(name,min,max,step,fallback)=>{const value=Number(params.get(name));return params.has(name)&&Number.isFinite(value)&&value>=min&&value<=max&&Math.abs(value/step-Math.round(value/step))<1e-8?String(value):fallback};
-  return {region:region.file,area:(areaGroups[region.file]||[]).some(x=>x.code===params.get('area'))?params.get('area'):'',metric,view:params.get('view')==='all'?'all':'pairs',distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik,tiks:params.getAll('tik'),uik:params.get('uik')};
+  const minPct=number('minPct',0,100,1,defaults.minPct),maxPct=number('maxPct',0,100,1,defaults.maxPct);
+  return {region:region.file,area:(areaGroups[region.file]||[]).some(x=>x.code===params.get('area'))?params.get('area'):'',metric,view:params.get('view')==='all'?'all':'pairs',distance:number('distance',.2,10,.2,defaults.distance),threshold:number('threshold',0,50,1,defaults.threshold),minPct,maxPct:String(Math.max(+minPct,+maxPct)),sameTik:params.get('sameTik')==='0'?false:defaults.sameTik,tiks:params.getAll('tik'),uik:params.get('uik')};
 }
-function applyUrl(){const state=readUrl();$('region').value=state.region;requestedArea=state.area;$('metric').value=state.metric;$('view').value=state.view;$('distance').value=state.distance;$('threshold').value=state.threshold;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
-function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');$('area').value?params.set('area',$('area').value):params.delete('area');params.set('metric',$('metric').value);$('view').value==='all'?params.set('view','all'):params.delete('view');params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tikCode(tik));requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
+function applyUrl(){const state=readUrl();$('region').value=state.region;requestedArea=state.area;$('metric').value=state.metric;$('view').value=state.view;$('distance').value=state.distance;$('threshold').value=state.threshold;$('minPct').value=state.minPct;$('maxPct').value=state.maxPct;$('sameTik').checked=state.sameTik;requestedTiks=state.tiks;requestedUik=state.uik}
+function writeUrl(mode){const url=new URL(location.href),params=url.searchParams,item=window.index.find(x=>x.file===$('region').value);url.pathname=regionPath(item);params.delete('region');$('area').value?params.set('area',$('area').value):params.delete('area');params.set('metric',$('metric').value);$('view').value==='all'?params.set('view','all'):params.delete('view');params.set('distance',$('distance').value);params.set('threshold',$('threshold').value);$('minPct').value==='0'?params.delete('minPct'):params.set('minPct',$('minPct').value);$('maxPct').value==='100'?params.delete('maxPct'):params.set('maxPct',$('maxPct').value);params.set('sameTik',$('sameTik').checked?'1':'0');params.delete('tik');for(const tik of [...selectedTiks].sort())params.append('tik',tikCode(tik));requestedUik?params.set('uik',requestedUik):params.delete('uik');history[mode+'State'](null,'',url)}
 function uikHref(row){const url=new URL(location.href);url.pathname=regionPath(window.regionInfo);url.searchParams.delete('region');url.searchParams.set('uik',row[7]);return url.pathname+url.search}
 function openUik(uuid){requestedUik=uuid;writeUrl('push');renderMarkers(shownRows);renderDetail()}
 function closeUik(){requestedUik=null;writeUrl('push');renderDetail();renderMarkers(shownRows);fitMapToRows()}
@@ -59,6 +60,7 @@ function renderTiks(){
   const search=$('tikSearch').value.trim().toLocaleLowerCase('ru');$('tikList').replaceChildren(...[...counts].sort((a,b)=>a[0].localeCompare(b[0],'ru')).filter(([name])=>name.toLocaleLowerCase('ru').includes(search)).map(([name,count])=>{const label=document.createElement('label'),input=document.createElement('input'),span=document.createElement('span');input.type='checkbox';input.checked=selectedTiks.has(name);input.dataset.tik=name;span.textContent=`${name} (${count})`;label.append(input,span);return label}));
   $('tikSummary').textContent=selectedTiks.size===1?`ТИК: ${[...selectedTiks][0]}`:selectedTiks.size?`ТИК: выбрано ${selectedTiks.size}`:'ТИК: все';
 }
+function searchUiks(){const query=$('uikSearch').value.trim().replace(/^#|^№/,'').trim(),results=$('uikSearchResults');results.replaceChildren();if(!query)return;const matches=rows.filter(row=>String(row[0]).startsWith(query)).sort((a,b)=>String(a[0]).localeCompare(String(b[0]),'ru',{numeric:true})).slice(0,12);if(!matches.length){results.textContent='УИК не найден в выбранном регионе';return}for(const row of matches){const button=document.createElement('button');button.type='button';button.textContent=`УИК #${row[0]} · ${row[1]}`;button.onclick=()=>{openUik(row[7]);results.replaceChildren()};results.append(button)}}
 function restoreTiks(){const available=new Set(areaRows().map(row=>row[1]));selectedTiks=new Set(requestedTiks.map(tikName).filter(name=>available.has(name)));renderTiks()}
 function fitMapToRows(){const filtered=areaRows(),visible=selectedTiks.size?filtered.filter(row=>selectedTiks.has(row[1])):filtered;if(visible.length===1){map.setView([visible[0][2],visible[0][3]],12);return}if(visible.length){const lat=visible.map(r=>r[2]).sort((a,b)=>a-b),lon=visible.map(r=>r[3]).sort((a,b)=>a-b),lo=Math.floor(visible.length*.01),hi=Math.ceil(visible.length*.99)-1;map.fitBounds([[lat[lo],lon[lo]],[lat[hi],lon[hi]]],{padding:[35,35]})}}
 const km=(a,b)=>{const r=Math.PI/180, x=(b[2]-a[2])*r,y=(b[3]-a[3])*r;const h=Math.sin(x/2)**2+Math.cos(a[2]*r)*Math.cos(b[2]*r)*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(h))};
@@ -74,6 +76,15 @@ function pointGroups(items){
 function metricIndex(){return $('metric').value==='er'?5:$('metric').value==='pick'?8:4}
 function metricName(){return $('metric').value==='er'?'ЕР по списку':$('metric').value==='pick'?'Кандидат IditeNa':'Явка'}
 function hasMetric(row){return metricIndex()!==8||row[8]!=null}
+function renderDistribution(selectedRows){
+  const metric=metricIndex(),min=+$('minPct').value,max=+$('maxPct').value,bins=Array(20).fill(0);
+  let below=0,inside=0,above=0,missing=0;
+  for(const row of selectedRows){if(!hasMetric(row)){missing++;continue}const value=Number(row[metric]);bins[Math.min(19,Math.floor(value/5))]++;if(value<min)below++;else if(value>max)above++;else inside++}
+  const peak=Math.max(1,...bins),chart=$('distribution');chart.replaceChildren();
+  bins.forEach((count,i)=>{const bar=document.createElement('span');const start=i*5,end=i===19?100:start+5;bar.className='distribution-bar'+(end<=min||start>max?' is-outside':'');bar.style.height=(count?Math.max(3,Math.round(44*count/peak)):0)+'px';bar.title=`${start}–${end}%: ${fmt(count)} УИК`;chart.append(bar)});
+  const outside=below+above;$('distributionSummary').textContent=`В диапазоне ${fmt(inside)} · вне ${fmt(outside)} (ниже ${fmt(below)}, выше ${fmt(above)})${missing?` · без данных ${fmt(missing)}`:''}`;
+  chart.setAttribute('aria-label',`Распределение ${metricName()}. ${$('distributionSummary').textContent}`);
+}
 const metricPalette=['#FFEA46','#BCAF6F','#7C7B78','#C8793A','#D71932'];
 function metricColor(value){const n=Math.max(0,Math.min(100,Number(value)||0));return metricPalette[Math.min(4,Math.floor(n/20))]}
 function groupPopup(group){
@@ -108,8 +119,10 @@ function calculate(){
   $('metricLegendLabel').textContent=metricName();
   $('distanceLabel').textContent=fmt(maxDist)+' км';$('thresholdLabel').textContent=threshold+' п.п.';
   const cells=new Map(),size=.08;
-  const filtered=areaRows(),selectedRows=selectedTiks.size?filtered.filter(row=>selectedTiks.has(row[1])):filtered,activeRows=selectedRows.filter(hasMetric);
-  if(allMode){pairs=[];layer.clearLayers();shownRows=selectedRows;renderMarkers(shownRows);$('stats').innerHTML=`<strong>${fmt(selectedRows.length)} УИК</strong> в выбранной территории${metric===8?` · ${fmt(activeRows.length)} с результатом кандидата, остальные серые`:''}`;return}
+  const filtered=areaRows(),selectedRows=selectedTiks.size?filtered.filter(row=>selectedTiks.has(row[1])):filtered,minPct=+$('minPct').value,maxPct=+$('maxPct').value;
+  renderDistribution(selectedRows);
+  const activeRows=selectedRows.filter(row=>hasMetric(row)&&row[metric]>=minPct&&row[metric]<=maxPct);
+  if(allMode){pairs=[];layer.clearLayers();shownRows=metric===8&&minPct===0&&maxPct===100?selectedRows:activeRows;renderMarkers(shownRows);$('stats').innerHTML=`<strong>${fmt(shownRows.length)} УИК</strong> на карте из ${fmt(selectedRows.length)} в выбранной территории${metric===8&&minPct===0&&maxPct===100?` · ${fmt(activeRows.length)} с результатом кандидата, остальные серые`:''}`;return}
   activeRows.forEach((r,i)=>{const key=`${Math.floor(r[2]/size)},${Math.floor(r[3]/size)}`;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(i)});
   const found=new Map();
   activeRows.forEach((a,i)=>{const ci=Math.floor(a[2]/size),cj=Math.floor(a[3]/size),near=[];
@@ -125,13 +138,16 @@ function calculate(){
 }
 function popup(p,m){const name=metricName(),candidate=m===8?`<br>${escapeHtml(p.a[10])} · округ #${escapeHtml(p.a[11])}`:'';return `<b>${name}: разница ${fmt(p.diff)} п.п.</b>${candidate}<br><a href="${uikHref(p.a)}" data-uik="${p.a[7]}">УИК #${p.a[0]}</a> — ${fmt(p.a[m])}%${m===8?` (${fmt(p.a[9])} голосов)`:''}<br><a href="${uikHref(p.b)}" data-uik="${p.b[7]}">УИК #${p.b[0]}</a> — ${fmt(p.b[m])}%${m===8?` (${fmt(p.b[9])} голосов)`:''}<br>Расстояние ${fmt(p.d)} км`}
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function choose(){const item=window.index.find(x=>x.file===$('region').value),request=++regionRequest;window.regionInfo=item;$('stats').textContent='Загрузка региона…';const nextRows=await(await fetch('/'+item.file)).json();if(request!==regionRequest)return;rows=nextRows;renderArea();restoreTiks();fitMapToRows();calculate();renderDetail()}
+async function choose(){const item=window.index.find(x=>x.file===$('region').value),request=++regionRequest;window.regionInfo=item;$('stats').textContent='Загрузка региона…';const nextRows=await(await fetch('/'+item.file)).json();if(request!==regionRequest)return;rows=nextRows;$('uikSearch').value='';$('uikSearchResults').replaceChildren();renderArea();restoreTiks();fitMapToRows();calculate();renderDetail()}
 async function init(){try{[window.index,areaGroups]=await Promise.all([fetch('/index.json').then(r=>r.json()),fetch('/area-groups.json').then(r=>r.json())]);$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');applyUrl();await choose();writeUrl('replace')}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
 for(const id of ['metric','view','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length){calculate();renderDetail()}});
 for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
+for(const id of ['minPct','maxPct'])$(id).addEventListener('change',()=>{const changed=$(id),other=$(id==='minPct'?'maxPct':'minPct');changed.value=String(Math.max(0,Math.min(100,Math.round(Number(changed.value)||0))));if(+$("minPct").value>+$("maxPct").value)other.value=changed.value;writeUrl('push');if(rows.length)calculate()});
 $('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';$('area').value='';writeUrl('push');choose()});
 $('area').addEventListener('change',()=>{requestedArea=$('area').value;selectedTiks.clear();requestedTiks=[];requestedUik=null;renderTiks();writeUrl('push');fitMapToRows();calculate();renderDetail()});
 $('tikSearch').addEventListener('input',renderTiks);
+$('uikSearch').addEventListener('input',searchUiks);
+$('uikSearch').addEventListener('keydown',event=>{if(event.key==='Enter'){const first=$('uikSearchResults').querySelector('button');if(first){event.preventDefault();first.click()}}});
 $('tikList').addEventListener('change',event=>{const name=event.target.dataset.tik;if(!name)return;event.target.checked?selectedTiks.add(name):selectedTiks.delete(name);requestedTiks=[...selectedTiks];renderTiks();writeUrl('push');fitMapToRows();calculate()});
 $('tikClear').addEventListener('click',()=>{selectedTiks.clear();requestedTiks=[];renderTiks();writeUrl('push');fitMapToRows();calculate()});
 addEventListener('popstate',()=>{const previous=window.regionInfo?.file;applyUrl();if(previous!==$('region').value)choose();else if(rows.length){renderArea();restoreTiks();fitMapToRows();calculate();renderDetail()}});
