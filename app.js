@@ -76,6 +76,7 @@ function pointGroups(items){
 function metricIndex(){return $('metric').value==='er'?5:$('metric').value==='pick'?8:4}
 function metricName(){return $('metric').value==='er'?'ЕР по списку':$('metric').value==='pick'?'Кандидат IditeNa':'Явка'}
 function hasMetric(row){return metricIndex()!==8||row[8]!=null}
+function updatePercentRange(){const min=+$('minPct').value,max=+$('maxPct').value;$('minPctLabel').textContent=min+'%';$('maxPctLabel').textContent=max+'%';$('percentRange').style.setProperty('--min-pct',min+'%');$('percentRange').style.setProperty('--max-pct',max+'%');$('minPct').classList.toggle('is-active',min===max)}
 function renderDistribution(selectedRows){
   const metric=metricIndex(),min=+$('minPct').value,max=+$('maxPct').value,bins=Array(20).fill(0);
   let below=0,inside=0,above=0,missing=0;
@@ -114,6 +115,7 @@ function renderPointGroups(items,target,selected){
 }
 function renderMarkers(items){markerLayer.clearLayers();if(!requestedUik)renderPointGroups(items,markerLayer)}
 function calculate(){
+  updatePercentRange();
   const maxDist=+$('distance').value, threshold=+$('threshold').value, metric=metricIndex(), same=$('sameTik').checked;
   const allMode=$('view').value==='all';document.body.classList.toggle('all-uiks-mode',allMode);document.querySelector('.pair-section').hidden=allMode;
   $('metricLegendLabel').textContent=metricName();
@@ -142,7 +144,7 @@ async function choose(){const item=window.index.find(x=>x.file===$('region').val
 async function init(){try{[window.index,areaGroups]=await Promise.all([fetch('/index.json').then(r=>r.json()),fetch('/area-groups.json').then(r=>r.json())]);$('region').innerHTML=window.index.map(x=>`<option value="${x.file}">${x.name} (${x.mapped.toLocaleString('ru-RU')})</option>`).join('');applyUrl();await choose();writeUrl('replace')}catch(e){$('stats').textContent='Не удалось загрузить данные. Откройте сайт через локальный сервер или GitHub Pages.';console.error(e)}}
 for(const id of ['metric','view','sameTik'])$(id).addEventListener('change',()=>{writeUrl('push');if(rows.length){calculate();renderDetail()}});
 for(const id of ['distance','threshold'])$(id).addEventListener('input',()=>{writeUrl('replace');if(rows.length)calculate()});
-for(const id of ['minPct','maxPct'])$(id).addEventListener('change',()=>{const changed=$(id),other=$(id==='minPct'?'maxPct':'minPct');changed.value=String(Math.max(0,Math.min(100,Math.round(Number(changed.value)||0))));if(+$("minPct").value>+$("maxPct").value)other.value=changed.value;writeUrl('push');if(rows.length)calculate()});
+for(const id of ['minPct','maxPct'])$(id).addEventListener('input',()=>{if(+$('minPct').value>+$('maxPct').value)$(id).value=$(id==='minPct'?'maxPct':'minPct').value;updatePercentRange();writeUrl('replace');if(rows.length)calculate()});
 $('region').addEventListener('change',()=>{selectedTiks.clear();requestedTiks=[];requestedUik=null;requestedArea='';$('area').value='';writeUrl('push');choose()});
 $('area').addEventListener('change',()=>{requestedArea=$('area').value;selectedTiks.clear();requestedTiks=[];requestedUik=null;renderTiks();writeUrl('push');fitMapToRows();calculate();renderDetail()});
 $('tikSearch').addEventListener('input',renderTiks);
