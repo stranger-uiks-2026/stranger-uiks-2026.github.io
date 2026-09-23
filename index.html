@@ -1,1 +1,161 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stranger UIKs 2026 · Карта соседних УИК</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="style.css?v=10"></head><body><header><div><span class="eyebrow">ГОСДУМА · 2026</span><h1>Stranger UIKs</h1><p>Изнанка выборов - разница в результатах на соседних участках</p></div><a href="#method">Метод и источники ↓</a></header><main><aside><div class="sidebar-controls"><label>Регион<select id="region"></select></label><label id="areaFilter" hidden>Район<select id="area"><option value="">Все районы</option></select></label><div class="uik-search"><label for="uikSearch">Найти УИК по номеру</label><input id="uikSearch" type="search" inputmode="numeric" placeholder="Например, 1092" autocomplete="off"><div id="uikSearchResults" class="uik-search-results" aria-live="polite"></div></div><div class="tik-filter"><details id="tikFilter"><summary id="tikSummary">ТИК: все</summary><div class="tik-panel"><input id="tikSearch" type="search" placeholder="Найти ТИК"><div id="tikList" class="tik-list"></div><button type="button" id="tikClear">Сбросить выбор</button></div></details></div><label>Показатель<select id="metric"><option value="er">ЕР по федеральному списку</option><option value="turnout">Явка</option><option value="pick">Кандидат IditeNa</option></select></label><div class="percent-filter"><div class="percent-filter-heading"><div class="percent-filter-title">Диапазон показателя, %</div><button id="resetPct" type="button">Сбросить</button></div><div class="percent-range-values"><span>От <output id="minPctLabel">0%</output></span><span>До <output id="maxPctLabel">100%</output></span></div><div id="distribution" class="distribution" role="img"></div><div class="distribution-scale"><span>0%</span><span>50%</span><span>100%</span></div><div class="percent-range" id="percentRange"><div class="percent-range-track"></div><input id="minPct" type="range" min="0" max="100" step="1" value="0" aria-label="Минимальный процент"><input id="maxPct" type="range" min="0" max="100" step="1" value="100" aria-label="Максимальный процент"></div><div id="distributionSummary" class="distribution-summary"></div></div><label>Отображение<select id="view"><option value="pairs">Контрастные пары</option><option value="all">Все УИК</option></select></label><label class="pair-only">Максимальное расстояние <output id="distanceLabel">2 км</output><input id="distance" type="range" min="0.2" max="10" step="0.2" value="2"></label><label class="pair-only">Минимальная разница <output id="thresholdLabel">15 п.п.</output><input id="threshold" type="range" min="0" max="50" step="1" value="15"></label><label class="check pair-only"><input id="sameTik" type="checkbox" checked> Только в одной ТИК</label><div class="stats" id="stats">Загрузка данных…</div><div id="uikDetail" class="uik-detail" hidden></div><div class="legend pair-only"><i></i> Линии: разница между УИК</div><div class="metric-legend"><strong id="metricLegendLabel">ЕР по списку</strong><div class="metric-gradient" aria-hidden="true"><i style="--swatch:#FFEA46"></i><i style="--swatch:#BCAF6F"></i><i style="--swatch:#7C7B78"></i><i style="--swatch:#C8793A"></i><i style="--swatch:#D71932"></i></div><div class="metric-ranges" aria-label="Значения шкалы слева направо: от 0 до 19 процентов, от 20 до 39, от 40 до 59, от 60 до 79, от 80 до 100"><span>0–19%</span><span>20–39%</span><span>40–59%</span><span>60–79%</span><span>80–100%</span></div><p>Каждый сектор круга — один УИК. Число в центре — количество УИК; при приближении виден диапазон процентов.</p></div></div><div class="pair-section"><h2>Самые контрастные пары</h2><div id="pairs" class="pairs"></div></div></aside><div id="map" role="application" aria-label="Карта избирательных участков"></div></main><section id="method"><h2>Как читать карту</h2><p>Линия соединяет две ближайшие комиссии с разницей выше порога. Для каждой УИК ищутся до трёх ближайших соседей в пределах заданного расстояния. Разница измеряется в процентных пунктах. Щелчок по линии показывает обе УИК и исходные значения. Цвет одиночной точки показывает значение выбранного показателя по пяти ступеням шкалы на основе Cividis с медной и алой верхними ступенями: 30% и 60% относятся к разным контрастным ступеням. Каждый сектор круговой диаграммы соответствует одному УИК в группе и окрашен по его значению. При приближении на значках появляются процент одиночного УИК или диапазон группы. Для показателя «Кандидат IditeNa» сравниваются доли голосов за кандидата, выбранного проектом для соответствующего одномандатного округа. УИК без результата кандидата не участвуют в сравнении; пары между разными округами исключены. Нажатие на группу открывает список всех УИК с результатами. Близость определяется по точкам помещений для голосования, а не по границам участков.</p><p>Резкая разница помогает выбрать пару для проверки, но сама по себе не доказывает нарушение: на результат влияют состав избирателей, специальные участки, особенности округов и ошибки координат.</p><h2>Данные</h2><p>Протоколы выборов 2026 года: <a href="https://deg.zhizhin.xyz/shpilkin.html">deg.zhizhin.xyz</a>. Координаты: <a href="https://github.com/Basistiy/duma/blob/master/data/edata.csv">открытый набор УИК 2021 года</a>, сопоставление по названию региона и номеру УИК. Координаты исторические и могут не отражать перенос УИК к выборам 2026 года. Неоднозначные и отсутствующие совпадения исключены; показывается охват для выбранного региона. ДЭГ исключено. Для процентов ЕР используется федеральный список. Для кандидата IditeNa используется поле pick_pct из файла протоколов источника.</p></section><footer><a href="https://github.com/stranger-uiks-2026/stranger-uiks-2026.github.io">Репозиторий на GitHub</a><span>Код — <a href="https://github.com/stranger-uiks-2026/stranger-uiks-2026.github.io/blob/main/LICENSE">MIT License</a> · внешние данные — по условиям их источников</span></footer><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="app.js?v=24"></script></body></html>
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Stranger UIKs 2026 · Карта соседних УИК</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="style.css?v=10">
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">ГОСДУМА · 2026</span>
+        <h1>Stranger UIKs</h1>
+        <p>Изнанка выборов - разница в результатах на соседних участках</p>
+      </div>
+      <a href="#method">Метод и источники ↓</a>
+    </header>
+    <main>
+      <aside>
+        <div class="sidebar-controls">
+          <label>Регион
+            <select id="region">
+            </select>
+          </label>
+          <label id="areaFilter" hidden>Район
+            <select id="area">
+              <option value="">Все районы</option>
+            </select>
+          </label>
+          <div class="uik-search">
+            <label for="uikSearch">Найти УИК по номеру</label>
+            <input id="uikSearch" type="search" inputmode="numeric" placeholder="Например, 1092" autocomplete="off">
+            <div id="uikSearchResults" class="uik-search-results" aria-live="polite">
+            </div>
+          </div>
+          <div class="tik-filter">
+            <details id="tikFilter">
+              <summary id="tikSummary">ТИК: все</summary>
+              <div class="tik-panel">
+                <input id="tikSearch" type="search" placeholder="Найти ТИК">
+                <div id="tikList" class="tik-list">
+                </div>
+                <button type="button" id="tikClear">Сбросить выбор</button>
+              </div>
+            </details>
+          </div>
+          <label>Показатель
+            <select id="metric">
+              <option value="er">ЕР по федеральному списку</option>
+              <option value="turnout">Явка</option>
+              <option value="pick">Кандидат IditeNa</option>
+            </select>
+          </label>
+          <div class="percent-filter">
+            <div class="percent-filter-heading">
+              <div class="percent-filter-title">Диапазон показателя, %</div>
+              <button id="resetPct" type="button">Сбросить</button>
+            </div>
+            <div class="percent-range-values">
+              <span>От
+                <output id="minPctLabel">0%</output>
+              </span>
+              <span>До
+                <output id="maxPctLabel">100%</output>
+              </span>
+            </div>
+            <div id="distribution" class="distribution" role="img">
+            </div>
+            <div class="distribution-scale">
+              <span>0%</span>
+              <span>50%</span>
+              <span>100%</span>
+            </div>
+            <div class="percent-range" id="percentRange">
+              <div class="percent-range-track">
+              </div>
+              <input id="minPct" type="range" min="0" max="100" step="1" value="0" aria-label="Минимальный процент">
+              <input id="maxPct" type="range" min="0" max="100" step="1" value="100" aria-label="Максимальный процент">
+            </div>
+            <div id="distributionSummary" class="distribution-summary">
+            </div>
+          </div>
+          <label>Отображение
+            <select id="view">
+              <option value="pairs">Контрастные пары</option>
+              <option value="all">Все УИК</option>
+            </select>
+          </label>
+          <label class="pair-only">Максимальное расстояние
+            <output id="distanceLabel">2 км</output>
+            <input id="distance" type="range" min="0.2" max="10" step="0.2" value="2">
+          </label>
+          <label class="pair-only">Минимальная разница
+            <output id="thresholdLabel">15 п.п.</output>
+            <input id="threshold" type="range" min="0" max="50" step="1" value="15">
+          </label>
+          <label class="check pair-only">
+            <input id="sameTik" type="checkbox" checked> Только в одной ТИК</label>
+          <div class="stats" id="stats">Загрузка данных…</div>
+          <div id="uikDetail" class="uik-detail" hidden>
+          </div>
+          <div class="legend pair-only">
+            <i>
+            </i> Линии: разница между УИК
+          </div>
+          <div class="metric-legend">
+            <strong id="metricLegendLabel">ЕР по списку</strong>
+            <div class="metric-gradient" aria-hidden="true">
+              <i style="--swatch:#FFEA46">
+              </i>
+              <i style="--swatch:#BCAF6F">
+              </i>
+              <i style="--swatch:#7C7B78">
+              </i>
+              <i style="--swatch:#C8793A">
+              </i>
+              <i style="--swatch:#D71932">
+              </i>
+            </div>
+            <div class="metric-ranges" aria-label="Значения шкалы слева направо: от 0 до 19 процентов, от 20 до 39, от 40 до 59, от 60 до 79, от 80 до 100">
+              <span>0–19%</span>
+              <span>20–39%</span>
+              <span>40–59%</span>
+              <span>60–79%</span>
+              <span>80–100%</span>
+            </div>
+            <p>Каждый сектор круга — один УИК. Число в центре — количество УИК; при приближении виден диапазон процентов.</p>
+          </div>
+        </div>
+        <div class="pair-section">
+          <h2>Самые контрастные пары</h2>
+          <div id="pairs" class="pairs">
+          </div>
+        </div>
+      </aside>
+      <div id="map" role="application" aria-label="Карта избирательных участков">
+      </div>
+    </main>
+    <section id="method">
+      <h2>Как читать карту</h2>
+      <p>Линия соединяет две ближайшие комиссии с разницей выше порога. Для каждой УИК ищутся до трёх ближайших соседей в пределах заданного расстояния. Разница измеряется в процентных пунктах. Щелчок по линии показывает обе УИК и исходные значения. Цвет одиночной точки показывает значение выбранного показателя по пяти ступеням шкалы на основе Cividis с медной и алой верхними ступенями: 30% и 60% относятся к разным контрастным ступеням. Каждый сектор круговой диаграммы соответствует одному УИК в группе и окрашен по его значению. При приближении на значках появляются процент одиночного УИК или диапазон группы. Для показателя «Кандидат IditeNa» сравниваются доли голосов за кандидата, выбранного проектом для соответствующего одномандатного округа. УИК без результата кандидата не участвуют в сравнении; пары между разными округами исключены. Нажатие на группу открывает список всех УИК с результатами. Близость определяется по точкам помещений для голосования, а не по границам участков.</p>
+      <p>Резкая разница помогает выбрать пару для проверки, но сама по себе не доказывает нарушение: на результат влияют состав избирателей, специальные участки, особенности округов и ошибки координат.</p>
+      <h2>Данные</h2>
+      <p>Протоколы выборов 2026 года:
+        <a href="https://deg.zhizhin.xyz/shpilkin.html">deg.zhizhin.xyz</a>. Координаты:
+        <a href="https://github.com/Basistiy/duma/blob/master/data/edata.csv">открытый набор УИК 2021 года</a>, сопоставление по названию региона и номеру УИК. Координаты исторические и могут не отражать перенос УИК к выборам 2026 года. Неоднозначные и отсутствующие совпадения исключены; показывается охват для выбранного региона. ДЭГ исключено. Для процентов ЕР используется федеральный список. Для кандидата IditeNa используется поле pick_pct из файла протоколов источника.
+      </p>
+    </section>
+    <footer>
+      <a href="https://github.com/stranger-uiks-2026/stranger-uiks-2026.github.io">Репозиторий на GitHub</a>
+      <span>Код —
+        <a href="https://github.com/stranger-uiks-2026/stranger-uiks-2026.github.io/blob/main/LICENSE">MIT License</a> · внешние данные — по условиям их источников
+      </span>
+    </footer>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+    <script src="app.js?v=24">
+    </script>
+  </body>
+</html>
